@@ -1,0 +1,330 @@
+#pragma warning(disable : 4996)
+#include<iostream>
+#include<vector>
+#include <string>
+#include <cctype>
+#include<fstream>
+#include<iomanip>
+using namespace std;
+void ShowMainMenue();
+void Login();
+void ShowQuickWithdrawScreen();
+void ShowNormalWithdrawScreen();
+vector<string> SplitString(string S1, string Delimiter) {
+	vector<string> vString;
+	short pos = 0;
+	string sWord;
+	while ((pos = S1.find(Delimiter)) != std::string::npos) {//npos means that there is no space 
+		sWord = S1.substr(0, pos);//store the word from position 0 to first space
+		if (sWord != "") {
+			vString.push_back(sWord);
+
+		}
+		S1.erase(0, pos + Delimiter.length());
+	}
+
+	if (S1 != "") {
+		vString.push_back(S1);
+
+	}
+
+	return vString;
+}
+const string ClientsFileName = "Clients.txt";
+enum enMainMenuOption { enQuickWithDraw = 1, enNormalWithDraw = 2, enDeposit = 3, enShowBalance = 4, enLogout = 5};
+struct sClient {
+	string AccountNumber;
+	string PinCode;
+	string Name;
+	string Phone;
+	double AccountBalance;
+	bool MarkForDelete = false;
+};
+sClient CurrentClient;
+sClient ConvertLinetoRecord(string Line, string Seperator = "#//#") {
+	vector<string> vClientData = SplitString(Line, Seperator);
+	sClient Client;
+	Client.AccountNumber = vClientData[0];
+	Client.PinCode = vClientData[1];
+	Client.Name = vClientData[2];
+	Client.Phone = vClientData[3];
+	Client.AccountBalance = stod(vClientData[4]);
+	return Client;
+}
+vector<sClient> LoadCleintsDataFromFile(string FileName) {
+	fstream MyFile;
+	vector<sClient> vClients;
+	MyFile.open(FileName, ios::in);
+	if (MyFile.is_open()) {
+		string Line;
+		while (getline(MyFile, Line)) {
+			sClient Client = ConvertLinetoRecord(Line);
+			vClients.push_back(Client);
+		}
+		MyFile.close();
+	}
+	return vClients;
+}
+void PrintClientCard(sClient Client) {
+	cout << "\n\nThe following is the extracted client record:\n";
+	cout << "\nAccout Number: " << Client.AccountNumber;
+	cout << "\nPin Code     : " << Client.PinCode;
+	cout << "\nName         : " << Client.Name;
+	cout << "\nPhone        : " << Client.Phone;
+	cout << "\nAccount Balance: " << Client.AccountBalance;
+}
+string ConvertRecordToLine(sClient Client, string Seperator = "#//#") {
+	string stClientRecord = "";
+	stClientRecord += Client.AccountNumber + Seperator;
+	stClientRecord += Client.PinCode + Seperator;
+	stClientRecord += Client.Name + Seperator;
+	stClientRecord += Client.Phone + Seperator;
+	stClientRecord += to_string(Client.AccountBalance);
+	return stClientRecord;
+}
+vector<sClient> SaveClientsDataToFile(string FileName, vector<sClient> vClients) {
+	fstream MyFile;
+	string DataLine;
+	MyFile.open(FileName, ios::out);//overwrite
+	if (MyFile.is_open()) {
+		for (sClient& C : vClients) {
+			if (C.MarkForDelete == false) {
+				DataLine = ConvertRecordToLine(C);
+				MyFile << DataLine << endl;
+			}
+		}
+		MyFile.close();
+	}
+	return vClients;
+}
+bool DepositBalanceToClientByAccountNumber(string AccountNUmber, double Amount, vector<sClient> vClients) {
+	char Answer = 'n';
+	cout << "\n\n Are you sure you want to perform this transaction? y/n ";
+	cin >> Answer;
+	if (Answer == 'y' || Answer == 'Y') {
+		for (sClient& C : vClients) {
+			if (C.AccountNumber == AccountNUmber) {
+				C.AccountBalance += Amount;
+				SaveClientsDataToFile(ClientsFileName, vClients);
+				cout << "\n\n Done Successfully New Balance is: " << C.AccountBalance << endl;
+				return true;
+			}
+		}
+		return false;
+	}
+}
+///////////////////////Show Check Balance Screen/////////
+void ShowCheckBalanceScreen() {
+	system("cls");
+	cout << "===========================================\n";
+	cout << "\t\tCheck Balance Screen\n";
+	cout << "===========================================\n";
+    cout << "Your Balance is " << CurrentClient.AccountBalance << "\n";
+}
+double ReadDepositAmount() {
+	double Amount;
+	cout << "\nEnter a positive Deposit Amount? ";
+	cin >> Amount;
+	while (Amount <= 0) {
+		cout << "\nEnter a positive Deposit Amount? ";
+		cin >> Amount;
+	}
+	return Amount;
+}
+void PerfromDepositOption() {
+	double DepositAmount = ReadDepositAmount();
+	vector<sClient> vClients = LoadCleintsDataFromFile(ClientsFileName);
+	DepositBalanceToClientByAccountNumber(CurrentClient.AccountNumber, DepositAmount, vClients);
+	CurrentClient.AccountBalance += DepositAmount;
+}
+void ShowDepositScreen() {
+	system("cls"); 
+	cout << "===========================================\n";
+	cout << "\t\tDeposit Screen\n";
+	cout << "===========================================\n";
+	PerfromDepositOption();
+}
+short getQuickWithDrawAmount(short getQuickWithDrawAmount) {
+	switch (getQuickWithDrawAmount) {
+	case 1:
+		return 20;
+	case 2:
+		return 50;
+	case 3:
+		return 100;
+	case 4:
+		return 200;
+	case 5:
+		return 400;
+	case 6:
+		return 600;
+	case 7:
+		return 800;
+	case 8:
+		return 1000;
+	default:
+		return 0;
+	}
+}
+short ReadQuickWithdrawOption() {
+	short Choice = 0;
+	while (Choice < 1 || Choice>9) {
+		cout << "\nChoose what to do from[1] to [9] ? ";
+		cin >> Choice;
+	}
+	return Choice;
+}
+void PerfromQuickWithdrawOption(short QuickWithdrawOption) {
+	if (QuickWithdrawOption == 9)//exit
+		return;
+	short WithDrawBalance = getQuickWithDrawAmount(QuickWithdrawOption);
+	if (WithDrawBalance > CurrentClient.AccountBalance) {
+		cout << "\nThe Amount Exceeds your balance, make another choice.\n";
+		cout << "Press Any key to continue...";
+		system("pause>0");
+		ShowQuickWithdrawScreen();
+		return;
+	}
+	vector<sClient> vClients = LoadCleintsDataFromFile(ClientsFileName);
+	DepositBalanceToClientByAccountNumber(CurrentClient.AccountNumber, WithDrawBalance * -1, vClients);
+	CurrentClient.AccountBalance -= WithDrawBalance;
+}
+void ShowQuickWithdrawScreen() {
+	system("cls");
+	cout << "Hello " << CurrentClient.Name << endl;
+	cout << "===========================================\n";
+	cout << "\t\tQucik Withdraw\n";
+	cout << "===========================================\n";
+	cout << "\t[1] 20\t\t[2] 50\n";
+	cout << "\t[3] 100\t\t[4] 200\n";
+	cout << "\t[5] 400\t\t[6] 600\n";
+	cout << "\t[7] 800\t\t[8] 1000\n";
+	cout << "\t[9] Exit\n";
+	cout << "===========================================\n";
+	cout << "Your Balance is " << CurrentClient.AccountBalance;
+	PerfromQuickWithdrawOption(ReadQuickWithdrawOption());
+}
+////////////////////////////////////////
+int ReadWithDrawAmount() {
+	int Amount;
+	cout << "\nEnter an amount Multiple of 5 ? ";
+	cin >> Amount;
+	while (Amount % 5 != 0) {
+		cout << "\nEnter an Amount Multiple of 5 ";
+		cin >> Amount;
+	}
+	return Amount;
+}
+void PerformNormalWithdrawScreen() {
+	int WithDrawBalance = ReadWithDrawAmount();
+	if (WithDrawBalance > CurrentClient.AccountBalance) {
+		cout << "\nThe Amount Exceeds your balance, make another choice.\n";
+		cout << "Press Any key to continue...";
+		system("pause>0");
+		ShowNormalWithdrawScreen();
+		return;
+	}
+	vector<sClient> vClients = LoadCleintsDataFromFile(ClientsFileName);
+	DepositBalanceToClientByAccountNumber(CurrentClient.AccountNumber, WithDrawBalance * -1, vClients);
+	CurrentClient.AccountBalance -= WithDrawBalance;
+}
+void ShowNormalWithdrawScreen(){
+	system("cls");
+	cout << "===========================================\n";
+	cout << "\t\t Normal Withdraw Screen\n";
+	cout << "===========================================\n";
+	PerformNormalWithdrawScreen();
+}
+short ReadMainMenueOption() {
+	short Choice = 0;
+	cout << "Choose what do you want to do [1 to 5] " << endl;
+	cin >> Choice;
+	return Choice;
+}
+void GoBackToMainMenue() {
+	cout << " press any key to go back to main menue..." << endl;
+	system("pause>0");
+	ShowMainMenue();
+}
+void PerfromMainMenueOption(enMainMenuOption MainMenueOption) {
+	switch (MainMenueOption) {
+
+	case enMainMenuOption::enQuickWithDraw:
+	{
+		system("cls");
+		ShowQuickWithdrawScreen();
+		GoBackToMainMenue();
+		break;
+	}
+	case enMainMenuOption::enNormalWithDraw:
+		system("cls");
+		ShowNormalWithdrawScreen();
+		GoBackToMainMenue();
+		break;
+	case enMainMenuOption::enDeposit:
+		system("cls");
+		ShowDepositScreen();
+		GoBackToMainMenue();
+		break;
+	case enMainMenuOption::enShowBalance:
+		system("cls");
+		ShowCheckBalanceScreen();
+		GoBackToMainMenue();
+		break;
+	case enMainMenuOption::enLogout:
+		system("cls");
+		Login();
+		break;
+	}
+}
+bool FindClientByAccountNumberAndPinCode(string AccountNumber, string PinCode, sClient& Client) {
+	vector<sClient> vClient = LoadCleintsDataFromFile(ClientsFileName);
+	for (sClient C : vClient) {
+		if (C.AccountNumber == AccountNumber && C.PinCode == PinCode) {
+			Client = C;
+			return true;
+		}
+	}
+	return false;
+}
+bool  LoadClientInfo(string AccountNumber,string PinCode) {
+	if (FindClientByAccountNumberAndPinCode(AccountNumber,PinCode,CurrentClient))
+		return true;
+	else
+		return false;
+}
+void ShowMainMenue() {
+
+	system("cls");
+	cout << "===========================================\n";
+	cout << "\t\t ATM Main Menue Screen\n";
+	cout << "===========================================\n";
+	cout << "\t[1] Quick Withdraw.\n";
+	cout << "\t[2] Normal Withdraw.\n";
+	cout << "\t[3] Deposit.\n";
+	cout << "\t[4] Check Balance.\n";
+	cout << "\t[5] Logout.\n";
+	cout << "===========================================\n";
+	PerfromMainMenueOption((enMainMenuOption)ReadMainMenueOption());
+} 
+void Login() {
+	bool LoginFailed = false;
+	string AccountNumber,PinCode;
+	do {
+		system("cls");
+		cout << "===========================================\n";
+		cout << "\t\tLogin Screen\n";
+		cout << "===========================================\n";
+		if (LoginFailed)
+			cout << "Invaild Account Number/PinCode!" << endl;
+		cout << "Enter Account Number : " << endl;
+		cin >> AccountNumber;
+		cout << "Enter PinCode : " << endl;
+		cin >> PinCode;
+		LoginFailed = !LoadClientInfo(AccountNumber, PinCode);
+	} while (LoginFailed);
+	ShowMainMenue();
+}
+int main() {
+	Login();
+}
